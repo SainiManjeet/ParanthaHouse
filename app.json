@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "Parantha House",
+    "slug": "food-delivery-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#FF6B35"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourcompany.foodexpress"
+    },
+    "android": {
+      "package": "com.yourcompany.foodexpress",
+      "adaptiveIcon": {
+        "backgroundColor": "#FF6B35"
+      }
+    }
+  }
+}

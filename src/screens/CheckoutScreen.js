@@ -12,13 +12,15 @@ import {
   Platform,
 } from 'react-native';
 import { useCart } from '../context/CartContext';
+import { useMenu } from '../context/MenuContext';
 
 const DELIVERY_FEE = 25;
 const MERCHANT_UPI_ID = 'manjeetsaini297@okhdfcbank';
 const GOOGLE_PAY_PACKAGE = 'com.google.android.apps.nbu.paisa.user';
 
 export default function CheckoutScreen({ navigation }) {
-  const { items, totalPrice, clearCart } = useCart();
+  const { items, totalPrice, clearCart, syncItems } = useCart();
+  const { refreshMenu } = useMenu();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -27,12 +29,12 @@ export default function CheckoutScreen({ navigation }) {
   const grandTotal = totalPrice + DELIVERY_FEE;
   const validPhone = /^[6-9]\d{9}$/.test(phone.trim());
 
-  const submitOrder = () => {
+  const submitOrder = (orderTotal) => {
     const orderId = Math.floor(100000 + Math.random() * 900000);
     clearCart();
     navigation.replace('OrderConfirmation', {
       orderId,
-      total: grandTotal,
+      total: orderTotal,
       customerName: name.trim(),
       paymentStatus: 'Pending merchant confirmation',
     });
@@ -52,10 +54,38 @@ export default function CheckoutScreen({ navigation }) {
       return;
     }
 
+    const menuResult = await refreshMenu();
+    if (menuResult.error) {
+      Alert.alert('Menu unavailable', menuResult.error);
+      return;
+    }
+    const currentItems = menuResult.data;
+    const unavailable = items.filter((cartItem) =>
+      !currentItems.some((menuItem) => menuItem.id === cartItem.id && menuItem.available)
+    );
+    if (unavailable.length > 0) {
+      Alert.alert(
+        'Item no longer available',
+        `${unavailable.map((item) => item.name).join(', ')} is no longer available today. Update your cart before ordering.`
+      );
+      return;
+    }
+    const refreshedCart = items.map((cartItem) => {
+      const menuItem = currentItems.find((entry) => entry.id === cartItem.id);
+      return { ...menuItem, qty: cartItem.qty };
+    });
+    const updatedPrice = refreshedCart.some((item, index) => item.price !== items[index].price);
+    if (updatedPrice) {
+      syncItems(refreshedCart);
+      Alert.alert('Menu prices changed', 'We updated your cart with today’s prices. Please review the total and tap pay again.');
+      return;
+    }
+    const orderTotal = refreshedCart.reduce((sum, item) => sum + item.price * item.qty, 0) + DELIVERY_FEE;
+
     const paymentParams = new URLSearchParams({
       pa: MERCHANT_UPI_ID,
       pn: 'Parantha House',
-      am: grandTotal.toFixed(2),
+      am: orderTotal.toFixed(2),
       cu: 'INR',
       tn: `Breakfast order ${Date.now()}`,
     }).toString();
@@ -71,7 +101,7 @@ export default function CheckoutScreen({ navigation }) {
         'Complete the payment in Google Pay, then return here. This app cannot verify UPI payments, so your order will show as pending until the merchant confirms it.',
         [
           { text: 'Not now', style: 'cancel' },
-          { text: 'Submit order', onPress: submitOrder },
+          { text: 'Submit order', onPress: () => submitOrder(orderTotal) },
         ]
       );
     } catch (error) {

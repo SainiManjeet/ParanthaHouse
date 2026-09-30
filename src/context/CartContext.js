@@ -32,6 +32,13 @@ export function CartProvider({ children }) {
 
   const clearCart = () => setItems([]);
 
+  const syncItems = (menuItems) => {
+    setItems((prev) => prev.map((cartItem) => {
+      const menuItem = menuItems.find((item) => item.id === cartItem.id);
+      return menuItem ? { ...menuItem, qty: cartItem.qty } : cartItem;
+    }));
+  };
+
   const totalItems = useMemo(
     () => items.reduce((sum, i) => sum + i.qty, 0),
     [items]
@@ -48,6 +55,7 @@ export function CartProvider({ children }) {
     updateQty,
     removeFromCart,
     clearCart,
+    syncItems,
     totalItems,
     totalPrice,
   };

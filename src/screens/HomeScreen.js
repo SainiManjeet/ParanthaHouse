@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,19 +6,46 @@ import {
   StyleSheet,
   TouchableOpacity,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
-import { MENU } from '../data/menuData';
 import { useCart } from '../context/CartContext';
+import { useMenu } from '../context/MenuContext';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function HomeScreen({ navigation }) {
   const { totalItems } = useCart();
+  const { items, loading, error, refreshMenu } = useMenu();
+  useFocusEffect(useCallback(() => {
+    refreshMenu();
+  }, [refreshMenu]));
+  const availableItems = items.filter((item) => item.available);
 
   return (
     <SafeAreaView style={styles.container}>
       <FlatList
-        data={MENU}
+        data={availableItems}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        ListEmptyComponent={
+          <View style={styles.menuMessage}>
+            {loading ? <ActivityIndicator color="#A94425" /> : null}
+            {!loading && (
+              <>
+                <Text style={styles.menuMessageTitle}>
+                  {error ? 'Menu unavailable' : 'No paranthas on the menu yet'}
+                </Text>
+                <Text style={styles.menuMessageText}>
+                  {error || 'Please check back soon.'}
+                </Text>
+                {!!error && (
+                  <TouchableOpacity style={styles.retryButton} onPress={refreshMenu}>
+                    <Text style={styles.retryButtonText}>Try again</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </View>
+        }
         ListHeaderComponent={
           <>
             <View style={styles.header}>
@@ -181,4 +208,9 @@ const styles = StyleSheet.create({
   },
   addIconText: { color: '#fff', fontSize: 22, lineHeight: 24, fontWeight: '500' },
   footerNote: { textAlign: 'center', color: '#9C8B7D', fontSize: 12, marginTop: 12, marginBottom: 8 },
+  menuMessage: { minHeight: 150, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  menuMessageTitle: { color: '#30241D', fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  menuMessageText: { color: '#8F8176', fontSize: 12, textAlign: 'center', marginTop: 8, lineHeight: 18 },
+  retryButton: { marginTop: 14, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, backgroundColor: '#A94425' },
+  retryButtonText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 });

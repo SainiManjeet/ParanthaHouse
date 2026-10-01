@@ -27,7 +27,7 @@ A React Native + Expo breakfast ordering app with a shared, Supabase-backed dail
    EXPO_PUBLIC_SUPABASE_ANON_KEY=your-publishable-or-anon-key
    ```
 
-6. Restart Expo with `npm start`. Open the web admin panel at `http://localhost:8081/admin` and sign in with the invited admin user's email and password after accepting the Supabase invitation. The customer mobile app has no admin entry point.
+6. Restart Expo with `npm start`. Open the web admin panel at `http://localhost:8081/admin` and sign in with the invited admin user's email and password after accepting the Supabase invitation. If you have not set a password, use **Set or reset admin password** on the admin login page. Open the reset email on the same computer that is running Expo; `localhost` is not reachable from another phone or computer. The customer mobile app has no admin entry point.
 
 The app only embeds the public Supabase key; row-level security in `schema.sql` allows public reads of available items and restricts every menu change to users in `menu_admins`. Never put a Supabase service-role key in the app.
 

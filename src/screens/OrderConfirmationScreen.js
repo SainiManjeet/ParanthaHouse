@@ -2,7 +2,10 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
 
 export default function OrderConfirmationScreen({ route, navigation }) {
-  const { orderId, total, customerName, paymentStatus } = route.params;
+  const { orderId, total, customerName, paymentMethod, paymentStatus, notificationSent } = route.params;
+  const paymentMessage = paymentMethod === 'cod'
+    ? 'Please pay the delivery person in cash when your breakfast arrives.'
+    : 'The merchant will confirm your Google Pay payment.';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -10,7 +13,7 @@ export default function OrderConfirmationScreen({ route, navigation }) {
         <Text style={styles.emoji}>🫓</Text>
         <Text style={styles.title}>Order received, {customerName}!</Text>
         <Text style={styles.subtitle}>
-          Your breakfast order #{orderId} is submitted. The merchant will confirm your Google Pay payment.
+          Your breakfast order #{orderId} is submitted. {paymentMessage}
         </Text>
 
         <View style={styles.card}>
@@ -23,10 +26,19 @@ export default function OrderConfirmationScreen({ route, navigation }) {
             <Text style={styles.rowValue}>₹{total}</Text>
           </View>
           <View style={styles.row}>
+            <Text style={styles.rowLabel}>Payment method</Text>
+            <Text style={styles.rowValue}>{paymentMethod === 'cod' ? 'Cash on Delivery' : 'Google Pay (UPI)'}</Text>
+          </View>
+          <View style={styles.row}>
             <Text style={styles.rowLabel}>Payment status</Text>
             <Text style={styles.rowValue}>{paymentStatus}</Text>
           </View>
         </View>
+        {notificationSent === false && (
+          <Text style={styles.notificationWarning}>
+            Your order was saved, but the restaurant could not send its email notification.
+          </Text>
+        )}
       </View>
 
       <TouchableOpacity
@@ -65,6 +77,7 @@ const styles = StyleSheet.create({
   },
   rowLabel: { fontSize: 13, color: '#888' },
   rowValue: { fontSize: 13, color: '#222', fontWeight: '700' },
+  notificationWarning: { color: '#9A5B00', fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 14 },
   homeBtn: {
     backgroundColor: '#FF6B35',
     marginHorizontal: 24,

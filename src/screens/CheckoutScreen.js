@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useCart } from '../context/CartContext';
 import { useMenu } from '../context/MenuContext';
+import { supabase } from '../lib/supabase';
 
 const DELIVERY_FEE = 25;
 const MERCHANT_UPI_ID = 'manjeetsaini297@okhdfcbank';
@@ -24,19 +25,47 @@ export default function CheckoutScreen({ navigation }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('upi');
   const [isOpeningPayment, setIsOpeningPayment] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const grandTotal = totalPrice + DELIVERY_FEE;
   const validPhone = /^[6-9]\d{9}$/.test(phone.trim());
 
-  const submitOrder = (orderTotal) => {
-    const orderId = Math.floor(100000 + Math.random() * 900000);
+  const submitOrder = async (method) => {
+    if (!supabase) {
+      Alert.alert('Ordering unavailable', 'The order service is not configured. Please try again later.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    const { data, error: orderError } = await supabase.functions.invoke('create-order', {
+      body: {
+        customerName: name.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
+        paymentMethod: method,
+        items: items.map((item) => ({ id: item.id, quantity: item.qty })),
+      },
+    });
+    setIsSubmitting(false);
+    if (orderError || data?.error) {
+      Alert.alert('Could not place order', data?.error || orderError.message);
+      return;
+    }
+    if (!data?.order) {
+      Alert.alert('Could not place order', 'The order service returned an invalid response. Please try again.');
+      return;
+    }
+
     clearCart();
     navigation.replace('OrderConfirmation', {
-      orderId,
-      total: orderTotal,
+      orderId: data.order.order_number,
+      total: Number(data.order.total),
       customerName: name.trim(),
-      paymentStatus: 'Pending merchant confirmation',
+      paymentMethod: method,
+      paymentStatus: method === 'cod' ? 'Cash due on delivery' : 'Pending merchant confirmation',
+      notificationSent: data.notificationSent,
     });
   };
 
@@ -82,6 +111,11 @@ export default function CheckoutScreen({ navigation }) {
     }
     const orderTotal = refreshedCart.reduce((sum, item) => sum + item.price * item.qty, 0) + DELIVERY_FEE;
 
+    if (paymentMethod === 'cod') {
+      await submitOrder(paymentMethod);
+      return;
+    }
+
     const paymentParams = new URLSearchParams({
       pa: MERCHANT_UPI_ID,
       pn: 'Parantha House',
@@ -101,7 +135,7 @@ export default function CheckoutScreen({ navigation }) {
         'Complete the payment in Google Pay, then return here. This app cannot verify UPI payments, so your order will show as pending until the merchant confirms it.',
         [
           { text: 'Not now', style: 'cancel' },
-          { text: 'Submit order', onPress: () => submitOrder(orderTotal) },
+          { text: 'Submit order', onPress: () => submitOrder(paymentMethod) },
         ]
       );
     } catch (error) {
@@ -163,15 +197,37 @@ export default function CheckoutScreen({ navigation }) {
         />
 
         <Text style={styles.sectionLabel}>Payment</Text>
-        <View style={styles.paymentCard}>
+        <TouchableOpacity
+          accessibilityRole="radio"
+          accessibilityState={{ selected: paymentMethod === 'upi' }}
+          style={[styles.paymentCard, paymentMethod === 'upi' && styles.paymentCardSelected]}
+          onPress={() => setPaymentMethod('upi')}
+        >
           <View style={styles.gpayIcon}><Text style={styles.gpayG}>G</Text></View>
           <View style={styles.paymentCopy}>
             <Text style={styles.paymentTitle}>Google Pay</Text>
             <Text style={styles.paymentSubtitle}>UPI · {MERCHANT_UPI_ID}</Text>
           </View>
-          <View style={styles.selected}><Text style={styles.selectedMark}>✓</Text></View>
-        </View>
-        <Text style={styles.paymentNote}>Payment is confirmed by the merchant after you pay in Google Pay.</Text>
+          {paymentMethod === 'upi' && <View style={styles.selected}><Text style={styles.selectedMark}>✓</Text></View>}
+        </TouchableOpacity>
+        <TouchableOpacity
+          accessibilityRole="radio"
+          accessibilityState={{ selected: paymentMethod === 'cod' }}
+          style={[styles.paymentCard, paymentMethod === 'cod' && styles.paymentCardSelected]}
+          onPress={() => setPaymentMethod('cod')}
+        >
+          <View style={styles.codIcon}><Text style={styles.codIconText}>₹</Text></View>
+          <View style={styles.paymentCopy}>
+            <Text style={styles.paymentTitle}>Cash on Delivery</Text>
+            <Text style={styles.paymentSubtitle}>Pay when your breakfast arrives</Text>
+          </View>
+          {paymentMethod === 'cod' && <View style={styles.selected}><Text style={styles.selectedMark}>✓</Text></View>}
+        </TouchableOpacity>
+        <Text style={styles.paymentNote}>
+          {paymentMethod === 'upi'
+            ? 'Payment is confirmed by the merchant after you pay in Google Pay.'
+            : 'Please pay the delivery person in cash when your order arrives.'}
+        </Text>
 
         <Text style={styles.sectionLabel}>Order summary</Text>
         <View style={styles.summaryBox}>
@@ -201,12 +257,18 @@ export default function CheckoutScreen({ navigation }) {
       <View style={styles.footer}>
         <TouchableOpacity
           accessibilityRole="button"
-          style={[styles.placeOrderBtn, isOpeningPayment && styles.disabledButton]}
+          style={[(isOpeningPayment || isSubmitting) && styles.disabledButton, styles.placeOrderBtn]}
           onPress={handlePlaceOrder}
-          disabled={isOpeningPayment}
+          disabled={isOpeningPayment || isSubmitting}
         >
           <Text style={styles.placeOrderBtnText}>
-            {isOpeningPayment ? 'Opening Google Pay…' : `Pay ₹${grandTotal} with Google Pay`}
+            {isSubmitting
+              ? 'Submitting order…'
+              : isOpeningPayment
+              ? 'Opening Google Pay…'
+              : paymentMethod === 'cod'
+                ? `Place COD order · ₹${grandTotal}`
+                : `Pay ₹${grandTotal} with Google Pay`}
           </Text>
         </TouchableOpacity>
       </View>
@@ -246,8 +308,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#D9A36B',
+    borderColor: '#EFE5D9',
   },
+  paymentCardSelected: { borderColor: '#D9A36B' },
   gpayIcon: {
     width: 38,
     height: 38,
@@ -258,6 +321,16 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   gpayG: { fontSize: 22, fontWeight: '800', color: '#4285F4' },
+  codIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#F6F0E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  codIconText: { fontSize: 22, fontWeight: '800', color: '#A94425' },
   paymentCopy: { flex: 1 },
   paymentTitle: { fontSize: 14, fontWeight: '800', color: '#30241D' },
   paymentSubtitle: { fontSize: 11, color: '#8F8176', marginTop: 4 },

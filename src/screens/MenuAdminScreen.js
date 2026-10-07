@@ -148,6 +148,13 @@ export default function MenuAdminScreen({ navigation }) {
           </TouchableOpacity>
         </View>
         <Text style={styles.subtitle}>Edit names and prices, mark items available, or choose today’s special.</Text>
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={styles.ordersButton}
+          onPress={() => navigation.navigate('OrdersAdmin')}
+        >
+          <Text style={styles.addButtonText}>View customer orders</Text>
+        </TouchableOpacity>
 
         {draft && (
           <View style={styles.formCard}>
@@ -266,6 +273,7 @@ const styles = StyleSheet.create({
   signOutButton: { paddingHorizontal: 12, paddingVertical: 9, backgroundColor: '#F6E8D5', borderRadius: 12 },
   signOutText: { color: '#8D4B2D', fontSize: 12, fontWeight: '800' },
   addButton: { paddingVertical: 14, paddingHorizontal: 16, backgroundColor: '#A94425', borderRadius: 14, alignItems: 'center', marginBottom: 14 },
+  ordersButton: { paddingVertical: 14, paddingHorizontal: 16, backgroundColor: '#6A7D45', borderRadius: 14, alignItems: 'center', marginBottom: 14 },
   addButtonText: { color: '#fff', fontSize: 14, fontWeight: '800' },
   formCard: { backgroundColor: '#F4E8D9', borderRadius: 18, padding: 15, marginBottom: 14 },
   formHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
